@@ -50,6 +50,7 @@ private:
     void initVulkan() {
         createInstance();
         pickPhysicalDevice();
+        createLogicalDevice();
     }
 
     void createInstance() {
@@ -155,6 +156,47 @@ private:
         }
     }
 
+    void createLogicalDevice() {
+        QueueFamilyIndicies indicies = findQueueFamilies(physicalDevice);
+
+        //Specifies the queues that need to be created
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = indicies.graphicsFamily.value();
+        queueCreateInfo.queueCount = 1;
+
+        float queuePriority = 1.0f;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+
+        //Specifies the deviceFeatures like (eg. geometry shaders, etc)
+        VkPhysicalDeviceFeatures deviceFeatures{};
+
+        //All information about logical device
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = &queueCreateInfo;
+        createInfo.queueCreateInfoCount = 1;
+        createInfo.pEnabledFeatures = &deviceFeatures;
+
+        //Device specific extensions and validation layers (ONLY USED IN OLDER VERSIONS OF VULKAN)
+        createInfo.enabledExtensionCount = 0;
+
+        if (enableValidationLayers) {
+            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+            createInfo.ppEnabledLayerNames = validationLayers.data();
+        }
+        else {
+            createInfo.enabledLayerCount = 0;
+        }
+
+        //Instantiate the logical device with these structs
+        if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create a logical device!");
+        }
+
+        vkGetDeviceQueue(device, indicies.graphicsFamily.value(), 0, &graphicsQueue);
+    }
+
     //Look for groups of queues that support graphics commands
     QueueFamilyIndicies findQueueFamilies(VkPhysicalDevice device) {
         QueueFamilyIndicies indicies;
@@ -189,12 +231,16 @@ private:
 
     void cleanup() {
         vkDestroyInstance(instance, nullptr);
+        vkDestroyDevice(device, nullptr);
 
         glfwDestroyWindow(window);
         glfwTerminate();
     }
 
+    VkQueue graphicsQueue;
+
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkDevice device;
     GLFWwindow* window;
     VkInstance instance;
 };
